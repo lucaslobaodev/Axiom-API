@@ -1,5 +1,5 @@
 import os
-from psycopg2 import pool
+from psycopg2 import pool, errors as pg_errors
 from psycopg2.extras import RealDictCursor
 from dotenv import load_dotenv
 from db.load_sql import load_sql
@@ -29,16 +29,15 @@ def execute_query(
         ):
     
     conn = get_connection()
-    
+
     try:
-        with conn.cursor(
-            cursor_factory=RealDictCursor
-            ) as cursor:
-            cursor.execute(
-                load_sql(filename), params
-                )
+        with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+            cursor.execute(load_sql(filename), params)
             if fetch:
                 return cursor.fetchall()
             conn.commit()
+    except pg_errors.UniqueViolation:
+        conn.rollback()
+        raise ValueError("duplicate")
     finally:
         release_connection(conn)

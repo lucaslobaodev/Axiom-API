@@ -5,11 +5,11 @@ def insert_lead(lead: Lead):
     return execute_query(
         "insert_lead.sql",
         (lead.name, lead.email, lead.phone),
-        fetch=False
+        fetch=True
     )
 
-def get_all_leads():
-    return execute_query("get_all_leads.sql", fetch=True)
+def get_all_leads(limit: int = 20, offset: int = 0):
+    return execute_query("get_all_leads.sql", (limit, offset), fetch=True)
 
 def get_leads_by_email(email: str):
     return execute_query("get_leads_by_email.sql", (email,), fetch=True)

@@ -1,15 +1,14 @@
 from unittest.mock import patch
 
-BASE_LEAD = {"name": "Lucas", "email": "lucas@test.com", "phone": "11999998888"}
+BASE_LEAD = {"id": 1, "name": "Lucas", "email": "lucas@test.com", "phone": "11999998888"}
 
 # POST /leads/
 
 def test_create_lead_sucesso(client):
-    with patch("controllers.lead.create_lead") as mock:
+    with patch("controllers.lead.create_lead", return_value=BASE_LEAD):
         response = client.post("/leads/", json=BASE_LEAD)
         assert response.status_code == 200
-        assert response.json() == {"message": "Lead criado com sucesso"}
-        mock.assert_called_once()
+        assert response.json()["email"] == BASE_LEAD["email"]
 
 def test_create_lead_phone_invalido(client):
     payload = {**BASE_LEAD, "phone": "123"}
@@ -21,13 +20,26 @@ def test_create_lead_email_invalido(client):
     response = client.post("/leads/", json=payload)
     assert response.status_code == 422
 
+def test_create_lead_duplicado(client):
+    with patch("controllers.lead.create_lead", side_effect=ValueError("duplicate")):
+        response = client.post("/leads/", json=BASE_LEAD)
+        assert response.status_code == 409
+        assert "já cadastrado" in response.json()["detail"]
+
 # GET /leads/
 
 def test_get_all_leads(client):
-    with patch("controllers.lead.get_all_leads", return_value=[BASE_LEAD]):
+    with patch("controllers.lead.get_all_leads", return_value=[BASE_LEAD]) as mock:
         response = client.get("/leads/")
         assert response.status_code == 200
         assert isinstance(response.json(), list)
+        mock.assert_called_once_with(limit=20, offset=0)
+
+def test_get_all_leads_paginacao(client):
+    with patch("controllers.lead.get_all_leads", return_value=[BASE_LEAD]) as mock:
+        response = client.get("/leads/?limit=5&offset=10")
+        assert response.status_code == 200
+        mock.assert_called_once_with(limit=5, offset=10)
 
 def test_get_leads_filtro_email(client):
     with patch("controllers.lead.get_leads_by_email", return_value=[BASE_LEAD]) as mock:
