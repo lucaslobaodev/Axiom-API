@@ -1,11 +1,8 @@
-import os
 import pytest
 from fastapi.testclient import TestClient
-from unittest.mock import patch, MagicMock
 from main import app
+from core.config import settings
 
 @pytest.fixture
 def client():
-    return TestClient(app)
-
-
+    return TestClient(app, headers={"X-API-Key": settings.API_KEY})

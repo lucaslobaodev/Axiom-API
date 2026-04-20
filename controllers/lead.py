@@ -1,14 +1,19 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request, Depends
 from typing import List
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from schemas.lead import Lead
 from schemas.lead_response import LeadResponse
 from services.lead import create_lead
 from repository.lead import get_all_leads, get_leads_by_email, get_leads_by_phone, get_lead_by_id
+from core.auth import require_api_key
 
-router = APIRouter(prefix="/leads", tags=["leads"])
+limiter = Limiter(key_func=get_remote_address)
+router = APIRouter(prefix="/leads", tags=["leads"], dependencies=[Depends(require_api_key)])
 
 @router.post("/", response_model=LeadResponse)
-def post_lead(lead: Lead):
+@limiter.limit("10/minute")
+def post_lead(request: Request, lead: Lead):
     try:
         return create_lead(lead)
     except ValueError as e:
@@ -17,7 +22,8 @@ def post_lead(lead: Lead):
         raise
 
 @router.get("/", response_model=List[LeadResponse])
-def list_leads(email: str = None, phone: str = None, limit: int = 20, offset: int = 0):
+@limiter.limit("30/minute")
+def list_leads(request: Request, email: str = None, phone: str = None, limit: int = 20, offset: int = 0):
     if email:
         result = get_leads_by_email(email)
         if not result:
@@ -31,7 +37,8 @@ def list_leads(email: str = None, phone: str = None, limit: int = 20, offset: in
     return get_all_leads(limit=limit, offset=offset)
 
 @router.get("/{lead_id}", response_model=LeadResponse)
-def get_lead(lead_id: int):
+@limiter.limit("30/minute")
+def get_lead(request: Request, lead_id: int):
     result = get_lead_by_id(lead_id)
     if not result:
         raise HTTPException(status_code=404, detail="Lead não encontrado")
